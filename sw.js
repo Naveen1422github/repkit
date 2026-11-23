@@ -1,7 +1,7 @@
 // repkit service worker — network-first, cache as offline fallback.
 // bump CACHE_NAME on every deploy. ASSETS must list EVERY js module:
 // a module missing from cache must fail as missing, never be answered with index.html.
-const CACHE_NAME = 'repkit-v3';
+const CACHE_NAME = 'repkit-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -27,6 +27,11 @@ const ASSETS = [
   './js/sound.js',
   './js/go.js',
   './js/planshape.js',
+  './js/report-data.js',
+  './js/backup.js',
+  './js/log.js',
+  './js/reports.js',
+  './js/backup-view.js',
 ];
 self.addEventListener('install', (event) => {
   event.waitUntil(

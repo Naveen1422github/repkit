@@ -33,7 +33,8 @@ function cleanFields(fields) {
   return f;
 }
 
-const trainingDaysOf = (plan) => WEEKDAYS.filter((d) => plan[d].length > 0);
+// a day counts as training only if it holds at least one exercise (an empty circuit isn't work)
+const trainingDaysOf = (plan) => WEEKDAYS.filter((d) => flatItems(plan[d]).length > 0);
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 export function createStore(kv, { today = todayKey, makeId = uid } = {}) {

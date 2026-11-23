@@ -18,5 +18,8 @@ node --test
 A **new** Netlify site (own origin = own data). **Bump `CACHE_NAME` in `sw.js` on every release** and list every `js/*.js` file in `ASSETS`.
 Never change the site URL or the IndexedDB name (`repkit-db`) once live: data is tied to both.
 
+## backup
+Settings → backup → **export** saves everything (plan, workouts, photos) to `repkit-backup-YYYY-MM-DD.json`; **import** replaces what is on the phone. Google Drive backup comes later.
+
 ## docs
 `docs/spec.md` (design) and `docs/plan-*.md` (implementation plans, in order).

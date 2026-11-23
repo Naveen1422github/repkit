@@ -431,3 +431,12 @@ test('importAll with invalid file changes nothing', async () => {
   assert.deepEqual([...kv.map], before);
   assert.equal(store.state.exercises.length, 1);
 });
+
+test('a day with only an empty circuit is not a training day', async () => {
+  const { store } = await fresh('2026-11-23');
+  const c = await store.addCircuit('wed');
+  assert.deepEqual(store.state.planHistory, []);
+  const ex = await store.addExercise({ name: 'Plank', categoryIds: [], fields: { weight: false, reps: false, duration: true, break: true } });
+  await store.addCircuitItem('wed', c.id, ex.id);
+  assert.deepEqual(store.state.planHistory, [{ from: '2026-11-23', trainingDays: ['wed'] }]);
+});

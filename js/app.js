@@ -4,6 +4,9 @@ import { store, view, setRender } from './ctx.js';
 import { renderLibrary } from './library.js';
 import { renderPlan } from './plan.js';
 import { renderGo, goTeardown, prepareResume } from './go.js';
+import { renderLog } from './log.js';
+import { renderReports } from './reports.js';
+import { backupSection } from './backup-view.js';
 
 const TABS = ['go', 'plan', 'library', 'log', 'reports'];
 
@@ -28,11 +31,10 @@ function renderTab() {
   if (view.tab === 'go') return renderGo();
   if (view.tab === 'plan') return renderPlan();
   if (view.tab === 'library') return renderLibrary();
-  if (view.tab === 'log') return placeholder('daily log comes in a later update');
-  return placeholder('reports come in a later update');
+  if (view.tab === 'log') return renderLog();
+  return renderReports();
 }
 
-const placeholder = (text) => el('div', { class: 'view-pad' }, el('div', { class: 'empty' }, el('div', { class: 'empty-text' }, text)));
 
 function renderHeader() {
   return el('div', { class: 'header' },
@@ -47,7 +49,7 @@ function renderHeader() {
 }
 
 function openSettings() {
-  openModal('settings', (body) => {
+  openModal('settings', (body, close) => {
     const draw = () => {
       const st = store.state.settings;
       const set = async (patch) => {
@@ -64,7 +66,8 @@ function openSettings() {
           el('div', { class: 'chips' }, ...[3, 5].map((n) => el('button', {
             class: 'chip' + (st.countdownSec === n ? ' active' : ''), onClick: () => set({ countdownSec: n }),
           }, `last ${n} s`)))),
-        el('div', { class: 'settings-info' }, 'repkit · your data stays on this phone. backup comes in a later update.'),
+        backupSection(() => { close(); view.tab = 'plan'; render(); }),
+        el('div', { class: 'settings-info' }, 'repkit · your data stays on this phone.'),
       );
     };
     draw();
