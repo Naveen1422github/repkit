@@ -1,6 +1,6 @@
 // go — the workout player. renders from store.state.active + Date.now(); all logic lives in session.js / timer.js.
 import { el, icon, openModal, toast } from './ui.js';
-import { store, rerender, exerciseById } from './ctx.js';
+import { store, rerender, exerciseById, invalidateSessions } from './ctx.js';
 import { WEEKDAYS, todayKey, weekdayKey, nowTsSec } from './dates.js';
 import { formatSec } from './timefmt.js';
 import { elapsedSec, remainingSec, cuesBetween } from './timer.js';
@@ -463,6 +463,7 @@ function renderFinish(s) {
       try {
         await store.completeWorkout(s, rows.filter((r) => chosen.has(r.key)));
         latest = null;
+        invalidateSessions();
         toast('workout saved', 'success');
       } catch (err) {
         toast(err.planNotUpdated ? 'workout saved, plan not updated' : `not saved: ${err.message}`, 'error');
