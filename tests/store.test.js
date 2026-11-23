@@ -372,3 +372,62 @@ test('deleteExercise refuses when used only inside a circuit', async () => {
   const { store, push } = await withCircuit();
   await assert.rejects(store.deleteExercise(push.id), /Exercise is in use/);
 });
+
+// ---------- plan 3: sessions range / edit / delete / backup ----------
+const mkSession = (date, start = '18:00:00') => ({
+  id: `${date}-${start}`, date, planDay: 'mon', startedAt: `${date}T${start}`, endedAt: `${date}T18:30:00`, status: 'done',
+  items: [{ exerciseId: 'x', planItemId: null, circuitId: null, sets: [{ planSetId: null, planned: null, actual: { weight: 20, reps: 10, duration: null, break: null }, status: 'done' }] }],
+});
+
+test('loadSessionsRange spans months and sorts', async () => {
+  const { store } = await fresh();
+  for (const s of [mkSession('2026-11-02'), mkSession('2026-10-30'), mkSession('2026-11-02', '07:00:00'), mkSession('2026-12-01')]) {
+    await store.completeWorkout(s, []);
+  }
+  const got = await store.loadSessionsRange('2026-10-30', '2026-11-30');
+  assert.deepEqual(got.map((s) => s.id), ['2026-10-30-18:00:00', '2026-11-02-07:00:00', '2026-11-02-18:00:00']);
+  assert.equal((await store.allSessions()).length, 4);
+});
+
+test('updateSession / deleteSession', async () => {
+  const { store } = await fresh();
+  const s = mkSession('2026-11-02');
+  await store.completeWorkout(s, []);
+  const edited = structuredClone(s);
+  edited.items[0].sets[0].actual.reps = 12;
+  await store.updateSession(edited);
+  assert.equal((await store.loadSessions('2026-11'))[0].items[0].sets[0].actual.reps, 12);
+  await assert.rejects(store.updateSession({ ...s, id: 'nope' }), /Workout not found/);
+  await store.deleteSession(s);
+  assert.deepEqual(await store.loadSessions('2026-11'), []);
+});
+
+test('exportAll then importAll into a fresh store round-trips', async () => {
+  const { store } = await fresh();
+  const ex = await store.addExercise({ name: 'Bench', categoryIds: [], fields: ALL });
+  await store.addPlanItem('mon', ex.id);
+  await store.updateSettings({ countdownSec: 5 });
+  await store.completeWorkout(mkSession('2026-11-02'), []);
+  await store.saveActive(mkSession('2026-11-03'));
+  const doc = await store.exportAll();
+  assert.equal(doc.app, 'repkit');
+  assert.equal(doc.schemaVersion, SCHEMA_VERSION);
+  const other = await fresh();
+  await other.store.addExercise({ name: 'Old', categoryIds: [], fields: ALL });
+  await other.store.importAll(doc);
+  assert.deepEqual(other.store.state.exercises, store.state.exercises);
+  assert.deepEqual(other.store.state.plan, store.state.plan);
+  assert.equal(other.store.state.settings.countdownSec, 5);
+  assert.equal(other.store.state.active, null);
+  assert.equal((await other.store.allSessions()).length, 1);
+});
+
+test('importAll with invalid file changes nothing', async () => {
+  const { kv, store } = await fresh();
+  await store.addExercise({ name: 'Bench', categoryIds: [], fields: ALL });
+  const before = structuredClone([...kv.map]);
+  await assert.rejects(store.importAll({ app: 'kharchly', data: {} }), /not a repkit backup/);
+  await assert.rejects(store.importAll({ app: 'repkit', schemaVersion: 99, data: { meta: {}, categories: [], exercises: [], plan: {} } }), /newer repkit/);
+  assert.deepEqual([...kv.map], before);
+  assert.equal(store.state.exercises.length, 1);
+});

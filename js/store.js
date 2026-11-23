@@ -1,7 +1,8 @@
 // store — app state + every read/write. the ONLY module that touches storage.
 // storage is injected (kv = {get,set,del,keys}) so this file runs under node tests.
 // rule: validate -> write kv -> only then update state. a failed write changes nothing.
-import { todayKey, monthKey, WEEKDAYS } from './dates.js';
+import { todayKey, monthKey, monthsBetween, nowTsSec, WEEKDAYS } from './dates.js';
+import { BACKUP_APP, validateBackup } from './backup.js';
 import { applyDiff } from './session.js';
 import { isCircuit, flatItems, findItem as findInDay, mapItems } from './planshape.js';
 
@@ -243,6 +244,45 @@ export function createStore(kv, { today = todayKey, makeId = uid } = {}) {
     if (planError) { planError.planNotUpdated = true; throw planError; }
   }
 
+  // ---------- past sessions (log + reports) ----------
+  const byStart = (a, b) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : 0);
+  async function loadSessionsRange(from, to) {
+    const out = [];
+    for (const mk of monthsBetween(from, to)) out.push(...(await loadSessions(mk)).filter((x) => x.date >= from && x.date <= to));
+    return out.sort(byStart);
+  }
+  async function allSessions() {
+    const out = [];
+    for (const key of await kv.keys('sessions:')) out.push(...((await kv.get(key)) || []));
+    return out.sort(byStart);
+  }
+  async function updateSession(session) {
+    const key = K.month(monthKey(session.date));
+    const list = (await kv.get(key)) || [];
+    if (!list.some((x) => x.id === session.id)) throw new Error('Workout not found');
+    await kv.set(key, list.map((x) => (x.id === session.id ? session : x)));
+  }
+  async function deleteSession(session) {
+    const key = K.month(monthKey(session.date));
+    await kv.set(key, ((await kv.get(key)) || []).filter((x) => x.id !== session.id));
+  }
+
+  // ---------- backup ----------
+  // every kv key as-is (Blobs stay Blobs; the UI turns them into data URLs for the file)
+  async function exportAll() {
+    const data = {};
+    for (const key of await kv.keys('')) data[key] = await kv.get(key);
+    return { app: BACKUP_APP, schemaVersion: SCHEMA_VERSION, exportedAt: nowTsSec(), data };
+  }
+  // validate first: an invalid file changes nothing. then replace everything (never an active workout) and re-boot.
+  async function importAll(doc) {
+    const checked = validateBackup(doc, SCHEMA_VERSION);
+    if (!checked.ok) throw new Error(checked.error);
+    for (const key of await kv.keys('')) await kv.del(key);
+    for (const [key, value] of Object.entries(checked.data)) if (key !== K.active) await kv.set(key, value);
+    await boot();
+  }
+
   // ---------- settings ----------
   async function updateSettings(patch) {
     const next = { ...state.settings, ...patch };
@@ -261,14 +301,14 @@ export function createStore(kv, { today = todayKey, makeId = uid } = {}) {
   };
 
   return {
-    state, boot, getImage, loadSessions,
+    state, boot, getImage, loadSessions, loadSessionsRange, allSessions, exportAll,
     ...Object.fromEntries(Object.entries({
       addCategory, renameCategory, archiveCategory, deleteCategory,
       addExercise, updateExercise, archiveExercise, deleteExercise,
       setExerciseImage,
       addPlanItem, removePlanItem, movePlanItem, addSet, updateSet, removeSet, copyDay,
       addCircuit, setCircuitRounds, addCircuitItem,
-      updateSettings, saveActive, completeWorkout,
+      updateSettings, saveActive, completeWorkout, updateSession, deleteSession, importAll,
     }).map(([name, fn]) => [name, serial(fn)])),
   };
 }
