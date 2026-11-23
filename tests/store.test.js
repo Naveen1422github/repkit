@@ -6,13 +6,14 @@ process.env.TZ = 'Asia/Kolkata';
 
 function memKv() {
   const m = new Map();
-  let failNext = false;
+  let failIn = -1; // number of set() calls to let through before one fails; -1 = never
   return {
     map: m,
-    failNextSet() { failNext = true; },
+    failNextSet(after = 0) { failIn = after; },
     async get(k) { return m.has(k) ? structuredClone(m.get(k)) : undefined; },
     async set(k, v) {
-      if (failNext) { failNext = false; throw new Error('disk full'); }
+      if (failIn === 0) { failIn = -1; throw new Error('disk full'); }
+      if (failIn > 0) failIn--;
       m.set(k, structuredClone(v));
     },
     async del(k) { m.delete(k); },
@@ -439,4 +440,21 @@ test('a day with only an empty circuit is not a training day', async () => {
   const ex = await store.addExercise({ name: 'Plank', categoryIds: [], fields: { weight: false, reps: false, duration: true, break: true } });
   await store.addCircuitItem('wed', c.id, ex.id);
   assert.deepEqual(store.state.planHistory, [{ from: '2026-11-23', trainingDays: ['wed'] }]);
+});
+
+test('importAll that fails halfway puts the old data back', async () => {
+  const src = await fresh();
+  const ex = await src.store.addExercise({ name: 'Imported', categoryIds: [], fields: ALL });
+  await src.store.addPlanItem('mon', ex.id);
+  await src.store.completeWorkout(mkSession('2026-11-02'), []);
+  const doc = await src.store.exportAll();
+
+  const { kv, store } = await fresh();
+  await store.addExercise({ name: 'Mine', categoryIds: [], fields: ALL });
+  await store.completeWorkout(mkSession('2026-11-09'), []);
+  const before = structuredClone([...kv.map].sort());
+  kv.failNextSet(2); // two keys land, the third write fails
+  await assert.rejects(store.importAll(doc), /disk full/);
+  assert.deepEqual(structuredClone([...kv.map].sort()), before);
+  assert.deepEqual(store.state.exercises.map((e) => e.name), ['Mine']);
 });

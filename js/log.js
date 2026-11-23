@@ -112,11 +112,11 @@ function sessionCard(s, day) {
   return card;
 }
 
+// change the cached session FIRST, then save a copy of it: writes run one at a time, so each save carries
+// every earlier edit (a typed weight committed on blur, then an instant reps tap, never undo each other)
 async function editSet(s, itemIdx, setIdx, patch) {
-  const next = structuredClone(s);
-  Object.assign(next.items[itemIdx].sets[setIdx].actual, patch);
+  Object.assign(s.items[itemIdx].sets[setIdx].actual, patch);
   try {
-    await store.updateSession(next);
-    Object.assign(s.items[itemIdx].sets[setIdx].actual, patch); // keep the cached copy in step without a reload flash
+    await store.updateSession(structuredClone(s));
   } catch (e) { toast(e.message, 'error'); invalidateSessions(); rerender(); }
 }

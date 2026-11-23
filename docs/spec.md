@@ -144,7 +144,7 @@ Each row has a `today only | update plan` toggle, default **today only**. Save w
 
 **Plan.** A weekday holds a list of **entries**: a normal exercise (as before) or a **circuit**:
 `Circuit = {id, type: 'circuit', rounds: int ≥ 1, items: PlanItem[]}` — each circuit `PlanItem` has **exactly one set**, the template used every round (work duration, reps/kg, break). A one-exercise circuit is fine (20 s × 5).
-Plan tab: `+ circuit` creates one (rounds 3); inside it `+ exercise`, a rounds stepper, per-exercise set row (same fields UI as normal sets), remove. Entries reorder up/down at day level; exercises reorder inside their circuit. Copy day copies circuits with fresh ids. A day with only circuits is a training day for `planHistory`.
+Plan tab: `+ circuit` creates one (rounds 3); inside it `+ exercise`, a rounds stepper, per-exercise set row (same fields UI as normal sets), remove. Entries reorder up/down at day level; exercises reorder inside their circuit. Copy day copies circuits with fresh ids. A day counts as a training day for `planHistory` when it holds at least one exercise (inside a circuit or not); a day with only an empty circuit does not.
 
 **Session.** At Start a circuit expands into one session item per exercise, each with `rounds` sets (copies of the template, `planSetId` = template id, `round` = 1..n) and a shared `circuitId`. **Execution order** is derived, never stored: normal items run set by set; a circuit block runs round-robin (A1 B1 C1, A2 B2 C2, …). The cursor is the first pending set in that order.
 

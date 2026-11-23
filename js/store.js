@@ -279,8 +279,19 @@ export function createStore(kv, { today = todayKey, makeId = uid } = {}) {
   async function importAll(doc) {
     const checked = validateBackup(doc, SCHEMA_VERSION);
     if (!checked.ok) throw new Error(checked.error);
-    for (const key of await kv.keys('')) await kv.del(key);
-    for (const [key, value] of Object.entries(checked.data)) if (key !== K.active) await kv.set(key, value);
+    // snapshot first: if a write fails halfway (e.g. storage full on a big photo), put everything back
+    const snapshot = [];
+    for (const key of await kv.keys('')) snapshot.push([key, await kv.get(key)]);
+    const replaceWith = async (entries) => {
+      for (const key of await kv.keys('')) await kv.del(key);
+      for (const [key, value] of entries) await kv.set(key, value);
+    };
+    try {
+      await replaceWith(Object.entries(checked.data).filter(([key]) => key !== K.active));
+    } catch (e) {
+      await replaceWith(snapshot);
+      throw e;
+    }
     await boot();
   }
 
