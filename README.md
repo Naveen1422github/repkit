@@ -1,7 +1,7 @@
 # repkit
 
 Plan your workout week, then run it set by set with a big timer. PWA, works offline, all data stays on your phone.
-Vanilla JS modules, IndexedDB, zero npm dependencies. Sibling of kharchly and macro.
+Live: https://repskit.netlify.app · vanilla JS modules, IndexedDB, zero npm dependencies. Sibling of kharchly and macro.
 
 ## run locally
 ```
@@ -15,7 +15,7 @@ node --test
 ```
 
 ## deploy
-A **new** Netlify site (own origin = own data). **Bump `CACHE_NAME` in `sw.js` on every release** and list every `js/*.js` file in `ASSETS`.
+Push to `main` — Netlify deploys **repskit.netlify.app** automatically (own origin = own data). **Bump `CACHE_NAME` in `sw.js` on every release** and list every `js/*.js` file in `ASSETS`.
 Never change the site URL or the IndexedDB name (`repkit-db`) once live: data is tied to both.
 
 ## backup
